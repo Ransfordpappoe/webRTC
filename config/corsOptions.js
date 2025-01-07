@@ -3,6 +3,7 @@ const whitelist =[
     'http://localhost:3002',
     'https://horemowbookreaderlite.web.app',
     'https://horemowbookreaderlite.com',
+    `https://horemowghana.web.app`,
     'http://localhost:5173'
 ];
 
