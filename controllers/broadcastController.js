@@ -1,5 +1,5 @@
 const webrtc = require("wrtc");
-const { realtimeDB } = require("../model/firebaseAdmin");
+const { realtimeDB, firestoreDB } = require("../model/firebaseAdmin");
 
 let streamStore={};
 let screenShareStream={};
@@ -48,6 +48,7 @@ const consumeStream = async (req, res)=>{
         }
         // console.log(payload);
         res.status(201).json(payload);
+      
     } catch (error) {
         res.status(500).json({message: error.message});
     }
@@ -100,8 +101,8 @@ const uploadStream = async (req, res) => {
 }
 
 
-const handleTrackEvent=(e, roomId)=>{
-    streamStore[roomId] = e.streams[0];
+const handleTrackEvent=async(e, roomId)=>{
+    // streamStore[roomId] = e.streams[0];
 }
 
 const consumeScreenSharing = async (req, res)=>{
