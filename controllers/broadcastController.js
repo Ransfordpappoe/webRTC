@@ -102,7 +102,7 @@ const uploadStream = async (req, res) => {
 
 
 const handleTrackEvent=async(e, roomId)=>{
-    // streamStore[roomId] = e.streams[0];
+    streamStore[roomId] = e.streams[0];
 }
 
 const consumeScreenSharing = async (req, res)=>{
