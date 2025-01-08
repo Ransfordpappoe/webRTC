@@ -21,31 +21,19 @@ const consumeStream = async (req, res)=>{
                     urls: [
                         "stun:stun1.l.google.com:19302",
                         "stun:stun2.l.google.com:19302",
+                        "stun:stun.relay.metered.ca:80"
                     ],
                 },
                 {
-                urls: "stun:stun.relay.metered.ca:80",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:443",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
+                    urls: [
+                        "turn:standard.relay.metered.ca:80",
+                        "turn:standard.relay.metered.ca:80?transport=tcp",
+                        "turn:standard.relay.metered.ca:443",
+                        "turns:standard.relay.metered.ca:443?transport=tcp",
+                    ],
+                    username: "7caa77b5c9bd3cb538c9d418",
+                    credential: "0KsV2VDhnIVtIYNA"
+                }
             ]
         });
         const desc = new webrtc.RTCSessionDescription(sdp);
@@ -79,31 +67,19 @@ const uploadStream = async (req, res) => {
                     urls: [
                         "stun:stun1.l.google.com:19302",
                         "stun:stun2.l.google.com:19302",
+                        "stun:stun.relay.metered.ca:80"
                     ],
                 },
                 {
-                urls: "stun:stun.relay.metered.ca:80",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:443",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
+                    urls: [
+                        "turn:standard.relay.metered.ca:80",
+                        "turn:standard.relay.metered.ca:80?transport=tcp",
+                        "turn:standard.relay.metered.ca:443",
+                        "turns:standard.relay.metered.ca:443?transport=tcp",
+                    ],
+                    username: "7caa77b5c9bd3cb538c9d418",
+                    credential: "0KsV2VDhnIVtIYNA"
+                }
             ]
         });
         peer.ontrack = (e) => handleTrackEvent(e, roomId);
@@ -144,31 +120,19 @@ const consumeScreenSharing = async (req, res)=>{
                     urls: [
                         "stun:stun1.l.google.com:19302",
                         "stun:stun2.l.google.com:19302",
+                        "stun:stun.relay.metered.ca:80"
                     ],
                 },
                 {
-                urls: "stun:stun.relay.metered.ca:80",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:443",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
+                    urls: [
+                        "turn:standard.relay.metered.ca:80",
+                        "turn:standard.relay.metered.ca:80?transport=tcp",
+                        "turn:standard.relay.metered.ca:443",
+                        "turns:standard.relay.metered.ca:443?transport=tcp",
+                    ],
+                    username: "7caa77b5c9bd3cb538c9d418",
+                    credential: "0KsV2VDhnIVtIYNA"
+                }
             ]
         });
         const desc = new webrtc.RTCSessionDescription(sdp);
@@ -202,31 +166,19 @@ const uploadScreenShareStream = async (req, res) => {
                     urls: [
                         "stun:stun1.l.google.com:19302",
                         "stun:stun2.l.google.com:19302",
+                        "stun:stun.relay.metered.ca:80"
                     ],
                 },
                 {
-                urls: "stun:stun.relay.metered.ca:80",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:80?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turn:standard.relay.metered.ca:443",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
-                {
-                urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-                username: "7caa77b5c9bd3cb538c9d418",
-                credential: "0KsV2VDhnIVtIYNA",
-                },
+                    urls: [
+                        "turn:standard.relay.metered.ca:80",
+                        "turn:standard.relay.metered.ca:80?transport=tcp",
+                        "turn:standard.relay.metered.ca:443",
+                        "turns:standard.relay.metered.ca:443?transport=tcp",
+                    ],
+                    username: "7caa77b5c9bd3cb538c9d418",
+                    credential: "0KsV2VDhnIVtIYNA"
+                }
             ]
         });
         peer.ontrack = (e) => handleTrackScreenSharingEvent(e, roomId);
