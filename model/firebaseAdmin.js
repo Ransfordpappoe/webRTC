@@ -9,4 +9,5 @@ admin.initializeApp({
 });
 const realtimeDB = admin.database();
 const firestoreDB = admin.firestore();
-module.exports = {realtimeDB, admin, firestoreDB};
+const cloudStorage = admin.storage();
+module.exports = {realtimeDB, admin, firestoreDB, cloudStorage};

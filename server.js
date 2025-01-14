@@ -12,6 +12,7 @@ const corsOptions = require('./config/corsOptions');
 const {logger} = require('./middleware/logEvents');
 const errorHandler = require('./middleware/errorHandler');
 const {realtimeDB} = require('./model/firebaseAdmin');
+const webrtc = require("wrtc");
 const PORT =  process.env.PORT || 3500;
 
 app.use(cors(corsOptions));
@@ -23,6 +24,7 @@ const io = new Server(httpServer, {
         methods: ["GET", "POST"], 
     }
 });
+const rooms = {};
 app.use(logger);
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
@@ -55,7 +57,7 @@ app.use(errorHandler);
 
 // let worker;
 // let router;
-const rooms = {};
+
 // let transports = [];
 // let producers = [];
 // let consumers = [];
@@ -232,10 +234,13 @@ io.on("connection", (socket) => {
     socket.on("join_live_room", async(roomData)=>{
         const {roomid, userName, userPicture} = roomData;
 
-        socket.join(roomid);
+        // socket.join(roomid);
         if (!rooms[roomid]) {
             rooms[roomid] = {
                 users: [],
+                producers: [],
+                videoStream: null,
+                screenShareStream: null
             };
         }
       
@@ -245,6 +250,7 @@ io.on("connection", (socket) => {
             userPicture,
         };
         rooms[roomid].users.push(user);
+        newUserID = socket.id;
 
         const users_ref = realtimeDB.ref(`rooms/${roomid}/${socket.id}`);
         await users_ref.set({
@@ -252,47 +258,208 @@ io.on("connection", (socket) => {
             userName,
             userPicture
         });
+    });
+
+    socket.on("end_broadcast", async(roomid)=>{
+        try {
+            const roomid_ref = realtimeDB.ref(`rooms/${roomid}`);
+            const consumeSDP = realtimeDB.ref(`broadcast_status/${roomid}/consume_sdp`);
+            const producerSDP = realtimeDB.ref(`broadcast_status/${roomid}/producer_sdp`);
+            await roomid_ref.remove().catch((e)=>console.log(e));
+            const castStatus = realtimeDB.ref(`broadcast_status/${roomid}/stream_type`);
+            castStatus.set({
+                cast_status: "inactive",
+                screenShare: "inactive"
+            });
+            if (rooms[roomid].videoStream) {
+                rooms[roomid].videoStream = null;
+            }
+            
+            realtimeDB.ref(`broadcast_status/${roomid}/end_message`).set({message: "live broadcast has ended. Thanks for joining us. bye and see you next time"});
+            await consumeSDP.remove().catch((e) => {console.log(e)});
+            await producerSDP.remove().catch((e) => {console.log(e)});
+            console.log("production ended");
+        } catch (error) {
+            console.log(error)
+        }
+   
+    });
+
+    socket.on("broadcast_started", async(data)=>{
+            const {sdp, roomid, userName} = data;
+            socket.join(roomid);
+            if (!rooms[roomid]) {
+                rooms[roomid] = {
+                    users: [],
+                    producers: [],
+                    videoStream: null,
+                    screenShareStream: null
+                };
+            }
+
+            const producer ={
+                socketId: socket.id,
+                userName
+            }
+
+            rooms[roomid].producers.push(producer);
+           
+          try {
+                const peer = new webrtc.RTCPeerConnection({
+                    iceServers: [
+                        {
+                            urls: [
+                                "stun:stun1.l.google.com:19302",
+                                "stun:stun2.l.google.com:19302",
+                                "stun:stun.relay.metered.ca:80"
+                            ],
+                        },
+                        {
+                            urls: [
+                                "turn:standard.relay.metered.ca:80",
+                                "turn:standard.relay.metered.ca:80?transport=tcp",
+                                "turn:standard.relay.metered.ca:443",
+                                "turns:standard.relay.metered.ca:443?transport=tcp",
+                            ],
+                            username: "7caa77b5c9bd3cb538c9d418",
+                            credential: "0KsV2VDhnIVtIYNA"
+                        }
+                    ]
+                });
+                peer.ontrack = async(e) => {
+                    rooms[roomid].videoStream = e.streams[0];
+                    // console.log('Video stream set for room:', rooms[roomid].videoStream);
+                };
+                const desc = new webrtc.RTCSessionDescription(sdp);
+                await peer.setRemoteDescription(desc);
+                const answer = await peer.createAnswer();
+                await peer.setLocalDescription(answer);
+                const payload = {
+                    sdp: peer.localDescription
+                }
+              
+                realtimeDB.ref(`broadcast_status/${roomid}/stream_type`).set({
+                    cast_status: "active",
+                    screenShare: "inactive"
+                });
+                realtimeDB.ref(`broadcast_status/${roomid}/producer_sdp`).set(payload);
+                realtimeDB.ref(`broadcast_status/${roomid}/end_message`).set({message: ""});
+                console.log("production is in progress");
+                
+            } catch (error) {
+                realtimeDB.ref(`broadcast_status/${roomid}/production_err`).set({message: error});
+            }
+   
+    });
+
+    socket.on("consume_broadcast", async (data) => {
+        const {sdp, roomid} = data;
         
-        // socket.to(roomid).emit("members", rooms[roomid].users.length);
-        // socket.to(roomid).emit("new_member", {userName, userPicture, userID: socket.id});
+           try {
+                const peer = new webrtc.RTCPeerConnection({
+                    iceServers: [
+                        {
+                            urls: [
+                                "stun:stun1.l.google.com:19302",
+                                "stun:stun2.l.google.com:19302",
+                                "stun:stun.relay.metered.ca:80"
+                            ],
+                        },
+                        {
+                            urls: [
+                                "turn:standard.relay.metered.ca:80",
+                                "turn:standard.relay.metered.ca:80?transport=tcp",
+                                "turn:standard.relay.metered.ca:443",
+                                "turns:standard.relay.metered.ca:443?transport=tcp",
+                            ],
+                            username: "7caa77b5c9bd3cb538c9d418",
+                            credential: "0KsV2VDhnIVtIYNA"
+                        }
+                    ]
+                });
+                const videoStream = rooms[roomid].videoStream;
+                if (!videoStream) {
+                //    realtimeDB.ref(`broadcast_status/${roomid}/empty_request`).set({user: userName});
+                console.log("null videoStream")
+                   return;
+                }
+                const desc = new webrtc.RTCSessionDescription(sdp);
+                await peer.setRemoteDescription(desc);
+                videoStream.getTracks().forEach(track => {
+                    peer.addTrack(track, videoStream)
+                });
+                const answer = await peer.createAnswer();
+                await peer.setLocalDescription(answer);
+                const payload = {
+                    sdp: peer.localDescription
+                }
+                const sessionSdp = realtimeDB.ref(`broadcast_status/${roomid}/consume_sdp`);
+                sessionSdp.set(payload);
+                // console.log(payload)
+            } catch (error) {
+                console.log(error);
+            }
     });
 
-    socket.on("end_broadcast", (roomid)=>{
-        socket.to(roomid).emit("broadcast_ended", "live broadcast has ended");
-        const castStatus = realtimeDB.ref(`broadcast_status/${roomid}`);
-        castStatus.set({
-            cast_status: "inactive",
-            screenShare: "inactive"
-        });
+    socket.on("started_screenshare", async(roomData) => {
+        const {sdp, roomid, screenShareId} = roomData;
+        const userRoom = `${roomid}${socket.id}`;
+        try {
+            const peer = new webrtc.RTCPeerConnection({
+                iceServers: [
+                    {
+                        urls: [
+                            "stun:stun1.l.google.com:19302",
+                            "stun:stun2.l.google.com:19302",
+                            "stun:stun.relay.metered.ca:80"
+                        ],
+                    },
+                    {
+                        urls: [
+                            "turn:standard.relay.metered.ca:80",
+                            "turn:standard.relay.metered.ca:80?transport=tcp",
+                            "turn:standard.relay.metered.ca:443",
+                            "turns:standard.relay.metered.ca:443?transport=tcp",
+                        ],
+                        username: "7caa77b5c9bd3cb538c9d418",
+                        credential: "0KsV2VDhnIVtIYNA"
+                    }
+                ]
+            });
+            peer.ontrack = (e) => {
+                rooms[roomid].screenShareStream = e.streams[0];
+            };
+            const desc = new webrtc.RTCSessionDescription(sdp);
+            await peer.setRemoteDescription(desc);
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+            const payload = {
+                sdp: peer.localDescription
+            }
+            console.log("screensharing in progress");
+            socket.to(userRoom).emit("producer_screenshare_sdp", payload);
+            const castData = realtimeDB.ref(`broadcast_status/${roomid}/stream_type`);
+            castData.set({
+                screenShare: "active",
+                cast_status: "active",
+                screenShareId: screenShareId
+            });
+        } catch (error) {
+            socket.to(userRoom).emit("production_err", "error encountered while establishing connection, report issue if error persist");
+        }
     });
 
-    socket.on("broadcast_started", (roomid)=>{
-        const castStatus = realtimeDB.ref(`broadcast_status/${roomid}`);
-        castStatus.set({
-            cast_status: "active",
-            screenShare: "inactive"
-        });
-    });
-
-    socket.on("started_screenshare", (roomData) => {
-        const {roomid, screenShareId} = roomData;
-        const castData = realtimeDB.ref(`broadcast_status/${roomid}`);
-        castData.set({
-            screenShare: "active",
-            cast_status: "active",
-            screenShareId: screenShareId
-        });
-    });
-
-    socket.on("end_screenShare", (roomid)=>{
-        const roomScreenShare = realtimeDB.ref(`broadcast_status/${roomid}`);
-        roomScreenShare.set({
+    socket.on("end_screenShare", async(roomid)=>{
+        const roomid_ref = realtimeDB.ref(`rooms/${roomid}`);
+        await roomid_ref.remove().catch((e)=>console.log(e));
+        rooms[roomid].screenShareStream = null;
+        realtimeDB.ref(`broadcast_status/${roomid}/stream_type`).set({
             screenShare: "inactive",
             cast_status: "active"
         });
         socket.to(roomid).emit("screensharing_ended", "screen sharing has ended");
+        console.log("screen sharing ended");
     });
-
 
     // socket.on("send_message", (messageData)=>{
     //     const {roomid, userName, userPicture, message, messageID} = messageData;
@@ -303,6 +470,8 @@ io.on("connection", (socket) => {
         for(const roomid in rooms){
             try {
                 const userIndex = rooms[roomid].users.findIndex(user =>user.socketId === socket.id);
+                
+                
                 if (userIndex !== -1) {
                     const user_ref = realtimeDB.ref(`rooms/${roomid}/${socket.id}`);
                     const [disconnectedUser] = rooms[roomid].users.splice(userIndex, 1);
@@ -316,7 +485,24 @@ io.on("connection", (socket) => {
                     }
                     break;
                 }
+              
             } catch (error) {
+               
+            }
+        }
+
+        for(const roomid in rooms){
+            try {
+                const producerIndex = rooms[roomid].producers.findIndex(user =>user.socketId === socket.id);
+                if (producerIndex !== -1) {
+                    const [disconnectedUser] = rooms[roomid].producers.splice(producerIndex, 1);
+                    console.log(`${disconnectedUser.userName} is disconnected`);
+                    if (rooms[roomid].producers.length === 0) {
+                        delete rooms[roomid].producers;
+                    }
+                    break;
+                }
+            } catch {
                 
             }
         }

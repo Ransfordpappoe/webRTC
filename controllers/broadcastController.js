@@ -1,5 +1,6 @@
 const webrtc = require("wrtc");
-const { realtimeDB, firestoreDB } = require("../model/firebaseAdmin");
+const { realtimeDB, firestoreDB, cloudStorage } = require("../model/firebaseAdmin");
+const {Readable} = require('stream');
 
 let streamStore={};
 let screenShareStream={};
@@ -10,7 +11,7 @@ const consumeStream = async (req, res)=>{
     if(!sdp || !roomId){
         return res.status(400).json({message: "sdp and roomid required"});
     }
-    const senderStream = streamStore[roomId]; 
+    // const senderStream = streamStore[roomId]; 
     if (!senderStream) { 
         return res.status(400).json({ message: "No active stream available" }); 
     }
@@ -38,9 +39,9 @@ const consumeStream = async (req, res)=>{
         });
         const desc = new webrtc.RTCSessionDescription(sdp);
         await peer.setRemoteDescription(desc);
-        senderStream.getTracks().forEach(track => {
-            peer.addTrack(track, senderStream)
-        });
+        // senderStream.getTracks().forEach(track => {
+        //     peer.addTrack(track, senderStream)
+        // });
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
         const payload = {
@@ -83,7 +84,9 @@ const uploadStream = async (req, res) => {
                 }
             ]
         });
-        peer.ontrack = (e) => handleTrackEvent(e, roomId);
+        peer.ontrack = async(e) => {
+            streamStore[roomId] = e.streams[0];
+        };
         const desc = new webrtc.RTCSessionDescription(sdp);
         await peer.setRemoteDescription(desc);
         const answer = await peer.createAnswer();
