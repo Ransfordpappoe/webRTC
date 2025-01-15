@@ -11,7 +11,7 @@ const path = require('path');
 const corsOptions = require('./config/corsOptions');
 const {logger} = require('./middleware/logEvents');
 const errorHandler = require('./middleware/errorHandler');
-const {realtimeDB} = require('./model/firebaseAdmin');
+const {realtimeDB, firestoreDB} = require('./model/firebaseAdmin');
 const webrtc = require("wrtc");
 const PORT =  process.env.PORT || 3500;
 
@@ -328,12 +328,15 @@ io.on("connection", (socket) => {
                 });
                 peer.ontrack = async(e) => {
                     rooms[roomid].videoStream = e.streams[0];
+                    console.log(rooms[roomid].videoStream);
                     // console.log('Video stream set for room:', rooms[roomid].videoStream);
                 };
+              
                 const desc = new webrtc.RTCSessionDescription(sdp);
                 await peer.setRemoteDescription(desc);
                 const answer = await peer.createAnswer();
                 await peer.setLocalDescription(answer);
+             
                 const payload = {
                     sdp: peer.localDescription
                 }
@@ -353,9 +356,12 @@ io.on("connection", (socket) => {
     });
 
     socket.on("consume_broadcast", async (data) => {
-        const {sdp, roomid} = data;
+        const {sdp, roomid, iceID} = data;
         
            try {
+            const ice_ref = realtimeDB.ref(`broadcast_status/${roomid}/${iceID}`);
+            const iceSnapshot = await ice_ref.once("value");
+
                 const peer = new webrtc.RTCPeerConnection({
                     iceServers: [
                         {
@@ -379,10 +385,19 @@ io.on("connection", (socket) => {
                 });
                 const videoStream = rooms[roomid].videoStream;
                 if (!videoStream) {
-                //    realtimeDB.ref(`broadcast_status/${roomid}/empty_request`).set({user: userName});
-                console.log("null videoStream")
+                    console.log("null videoStream")
                    return;
                 }
+                console.log(videoStream);
+
+                // peer.onicecandidate=(e)=>{
+                //     if (e.candidate) {
+                //         if (iceSnapshot.exists()) {
+                //             firestoreDB.collection("broadcast").doc(iceSnapshot.val()).collection("answerCandidates").add(e.candidate.toJSON());
+                //         }   
+                //     }
+                // };
+              
                 const desc = new webrtc.RTCSessionDescription(sdp);
                 await peer.setRemoteDescription(desc);
                 videoStream.getTracks().forEach(track => {
@@ -395,6 +410,19 @@ io.on("connection", (socket) => {
                 }
                 const sessionSdp = realtimeDB.ref(`broadcast_status/${roomid}/consume_sdp`);
                 sessionSdp.set(payload);
+
+      
+                if (iceSnapshot.exists()) {
+                    const docRef = firestoreDB.collection("broadcast").doc(iceSnapshot.val()).collection("offerCandidates");
+                    docRef.onSnapshot((snapshot)=>{
+                        snapshot.docChanges().forEach((change)=>{
+                            if (change.type === "added") {
+                                const candidate = new webrtc.RTCIceCandidate(change.doc.data());
+                                peer.addIceCandidate(candidate);
+                            }
+                        })
+                    });
+                }
                 // console.log(payload)
             } catch (error) {
                 console.log(error);
@@ -459,6 +487,10 @@ io.on("connection", (socket) => {
         });
         socket.to(roomid).emit("screensharing_ended", "screen sharing has ended");
         console.log("screen sharing ended");
+    });
+
+    socket.on("remoteStream", async (data) => {
+        firestoreDB.collection("remoteStream").doc("hghstream").set(data);
     });
 
     // socket.on("send_message", (messageData)=>{
