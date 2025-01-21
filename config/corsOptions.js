@@ -4,7 +4,6 @@ const whitelist =[
     'https://horemowbookreaderlite.web.app',
     'https://horemowbookreaderlite.com',
     `https://horemowghana.web.app`,
-    'http://localhost:5173'
 ];
 
 const corsOptions = {

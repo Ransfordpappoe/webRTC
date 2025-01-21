@@ -1,17 +1,17 @@
 const webrtc = require("wrtc");
-const { realtimeDB, firestoreDB, cloudStorage } = require("../model/firebaseAdmin");
-const {Readable} = require('stream');
+const { realtimeDB, firestoreDB } = require("../model/firebaseAdmin");
 
 let streamStore={};
 let screenShareStream={};
 
 
 const consumeStream = async (req, res)=>{
-    const {sdp, roomId} = req.body;
+    const {sdp, roomId, userid, docid} = req.body;
+   
     if(!sdp || !roomId){
         return res.status(400).json({message: "sdp and roomid required"});
     }
-    // const senderStream = streamStore[roomId]; 
+    const senderStream = streamStore[roomId]; 
     if (!senderStream) { 
         return res.status(400).json({ message: "No active stream available" }); 
     }
@@ -32,16 +32,34 @@ const consumeStream = async (req, res)=>{
                         "turn:standard.relay.metered.ca:443",
                         "turns:standard.relay.metered.ca:443?transport=tcp",
                     ],
-                    username: "7caa77b5c9bd3cb538c9d418",
-                    credential: "0KsV2VDhnIVtIYNA"
+                    username: process.env.TURN_USERNAME,
+                    credential: process.env.TURN_CREDENTIAL
                 }
             ]
         });
+
+        // const docID = await realtimeDB.ref(`iceDocRefs/${roomId}/${userid}/docid`).get();
+        const callDoc = firestoreDB.collection("ice-candidates").doc(docid);
+        const answerCandidates = callDoc.collection("answerCandidates");
+
+        answerCandidates.onSnapshot((snapshot)=>{
+            snapshot.docChanges().forEach((change)=>{
+                if (change.type === "added") {
+                    let data = change.doc.data();
+                    try {
+                        peer.addIceCandidate(new webrtc.RTCIceCandidate(data));
+                    } catch (error) {
+                        console.log(error);
+                    }
+                }
+            });
+        });
+      
         const desc = new webrtc.RTCSessionDescription(sdp);
         await peer.setRemoteDescription(desc);
-        // senderStream.getTracks().forEach(track => {
-        //     peer.addTrack(track, senderStream)
-        // });
+        senderStream.getTracks().forEach(track => {
+            peer.addTrack(track, senderStream)
+        });
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
         const payload = {
@@ -52,6 +70,7 @@ const consumeStream = async (req, res)=>{
       
     } catch (error) {
         res.status(500).json({message: error.message});
+        console.log(error)
     }
    
 };
@@ -79,8 +98,8 @@ const uploadStream = async (req, res) => {
                         "turn:standard.relay.metered.ca:443",
                         "turns:standard.relay.metered.ca:443?transport=tcp",
                     ],
-                    username: "7caa77b5c9bd3cb538c9d418",
-                    credential: "0KsV2VDhnIVtIYNA"
+                    username: process.env.TURN_USERNAME,
+                    credential: process.env.TURN_CREDENTIAL
                 }
             ]
         });
@@ -101,11 +120,6 @@ const uploadStream = async (req, res) => {
     } catch (error) {
         res.status(500).json({message: error.message});
     }
-}
-
-
-const handleTrackEvent=async(e, roomId)=>{
-    streamStore[roomId] = e.streams[0];
 }
 
 const consumeScreenSharing = async (req, res)=>{
@@ -134,11 +148,28 @@ const consumeScreenSharing = async (req, res)=>{
                         "turn:standard.relay.metered.ca:443",
                         "turns:standard.relay.metered.ca:443?transport=tcp",
                     ],
-                    username: "7caa77b5c9bd3cb538c9d418",
-                    credential: "0KsV2VDhnIVtIYNA"
+                    username: process.env.TURN_USERNAME,
+                    credential: process.env.TURN_CREDENTIAL
                 }
             ]
         });
+
+        const callDoc = firestoreDB.collection("ice-candidates-screensharing").doc(docid);
+        const answerCandidates = callDoc.collection("answerCandidates");
+
+        answerCandidates.onSnapshot((snapshot)=>{
+            snapshot.docChanges().forEach((change)=>{
+                if (change.type === "added") {
+                    let data = change.doc.data();
+                    try {
+                        peer.addIceCandidate(new webrtc.RTCIceCandidate(data));
+                    } catch (error) {
+                        console.log(error);
+                    }
+                }
+            });
+        });
+
         const desc = new webrtc.RTCSessionDescription(sdp);
         await peer.setRemoteDescription(desc);
         senderStream.getTracks().forEach(track => {
@@ -180,12 +211,14 @@ const uploadScreenShareStream = async (req, res) => {
                         "turn:standard.relay.metered.ca:443",
                         "turns:standard.relay.metered.ca:443?transport=tcp",
                     ],
-                    username: "7caa77b5c9bd3cb538c9d418",
-                    credential: "0KsV2VDhnIVtIYNA"
+                    username: process.env.TURN_USERNAME,
+                    credential: process.env.TURN_CREDENTIAL
                 }
             ]
         });
-        peer.ontrack = (e) => handleTrackScreenSharingEvent(e, roomId);
+        peer.ontrack = (e) => {
+            screenShareStream[roomId] = e.streams[0];
+        };
         const desc = new webrtc.RTCSessionDescription(sdp);
         await peer.setRemoteDescription(desc);
         const answer = await peer.createAnswer();
@@ -202,32 +235,35 @@ const uploadScreenShareStream = async (req, res) => {
     }
 }
 
-const handleTrackScreenSharingEvent=(e, roomId)=>{
-    screenShareStream[roomId] = e.streams[0];
-}
-
 const endScreenSharing =async(req, res)=>{
     const {roomid} = req.body;
     if (!roomid || roomid === "") {
         res.sendStatus(400).json({message: "roomid required"});
     }
-    const roomid_ref = realtimeDB.ref(`rooms/${roomid}`);
+    try {
+        const roomid_ref = realtimeDB.ref(`rooms/${roomid}`);
     await roomid_ref.remove().catch((e)=>console.log(e));
     screenShareStream[roomid] = null;
     res.status(201).json({message: "screen sharing ended"});
-    console.log("screen sharing ended")
+    console.log("screen sharing ended");
+    } catch {
+    }
 }
 
 const endBroadcast =async(req, res)=>{
-    const {roomid} = req.body;
-    if (!roomid || roomid === "") {
+    const {roomId} = req.body;
+    if (!roomId || roomId === "") {
         res.sendStatus(400).json({message: "roomid required"});
     }
-    const roomid_ref = realtimeDB.ref(`rooms/${roomid}`);
-    await roomid_ref.remove().catch((e)=>console.log(e));
-    streamStore[roomid] = null;
-    screenShareStream[roomid] = null;
-    res.status(201).json({message: "production ended"});
-    console.log("production ended")
+    try {
+        const roomid_ref = realtimeDB.ref(`rooms/${roomId}`);
+        await roomid_ref.remove().catch((e)=>console.log(e));
+        streamStore[roomId] = null;
+        screenShareStream[roomId] = null;
+        res.status(201).json({message: "production ended"});
+        console.log("production ended")
+    } catch(error){
+        console.log(error)
+    }
 }
 module.exports={consumeStream, uploadStream, endBroadcast, consumeScreenSharing, uploadScreenShareStream, endScreenSharing};
