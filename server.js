@@ -76,7 +76,7 @@ app.use(errorHandler);
 
 
 io.on("connection", (socket) => {
-    console.log(`new user joinded: ${socket.id}`);
+    // console.log(`new user joinded: ${socket.id}`);
 
     socket.on("join_room", async(roomData)=>{
         const {roomid, userName, userPicture} = roomData;
