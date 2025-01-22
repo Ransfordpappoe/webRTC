@@ -76,7 +76,7 @@ app.use(errorHandler);
 
 
 io.on("connection", (socket) => {
-    // console.log(`new user joinded: ${socket.id}`);
+    console.log(`new user joinded: ${socket.id}`);
 
     socket.on("join_room", async(roomData)=>{
         const {roomid, userName, userPicture} = roomData;
@@ -238,7 +238,6 @@ io.on("connection", (socket) => {
         if (!rooms[roomid]) {
             rooms[roomid] = {
                 users: [],
-                producers: [],
             };
         }
       
@@ -328,15 +327,17 @@ io.on("connection", (socket) => {
                     // socket.to(roomid).emit("member_id_removed", socket.id);
                     await user_ref.remove().catch((e)=>{console.log(e)});
                     const docID = disconnectedUser.docid
-                    console.log(docID);
-                    const iceDocRef = firestoreDB.collection("ice-candidates").doc(docID);
-                    const answerCandidates = await iceDocRef.collection("answerCandidates").get()
-
-                    answerCandidates.forEach(async(doc)=>{
-                        await doc.ref.delete();
-                    });
-
-                    await iceDocRef.delete();
+                    if (docID) {
+                        const iceDocRef = firestoreDB.collection("ice-candidates").doc(docID);
+                        const answerCandidates = await iceDocRef.collection("answerCandidates").get()
+    
+                        answerCandidates.forEach(async(doc)=>{
+                            await doc.ref.delete();
+                        });
+    
+                        await iceDocRef.delete();
+                    }
+                   
                   
                     console.log(`${disconnectedUser.userName} is disconnected`);
                     if (rooms[roomid].users.length === 0) {

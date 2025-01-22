@@ -4,6 +4,7 @@ const whitelist =[
     'https://horemowbookreaderlite.web.app',
     'https://horemowbookreaderlite.com',
     `https://horemowghana.web.app`,
+    "https://e552-154-161-33-213.ngrok-free.app",
 ];
 
 const corsOptions = {
