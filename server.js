@@ -83,6 +83,11 @@ io.on("connection", (socket) => {
       if (snapshot.exists()) {
         await user_ref.remove().catch((e)=>{console.log(e)});
       }
+      const roompeerRef = realtimeDB.ref(`roompeers${roomid}/${userid}`);
+      const roompeersnapshot = await roompeerRef.once('value');
+      if (roompeersnapshot.exists()) {
+          await roompeerRef.remove().catch((e)=>{console.log(e)});
+      }
     });
 
     socket.on("disconnect", async()=>{
@@ -118,6 +123,11 @@ io.on("connection", (socket) => {
                     peerID: user.userid,
                     userName: user.userName
                 });
+            }
+            const roompeerRef = realtimeDB.ref(`roompeers${user.roomid}/${user.userid}`);
+            const roompeersnapshot = await roompeerRef.once('value');
+            if (roompeersnapshot.exists()) {
+                await roompeerRef.remove().catch((e)=>{console.log(e)});
             }
             console.log(`${disconnectedUser} is disconnected`);
             connectedPeers.delete(socket.id);
